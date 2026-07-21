@@ -33,6 +33,7 @@
       <div class="btns">
         <button class="btn primary" id="apply">Применить</button>
         <button class="btn" id="reset">Сбросить</button>
+        <a class="btn" href="/metrics">Методика</a>
         <a class="btn" href="/upload">Данные</a>
         <a class="btn" href="/logout">Выйти</a>
       </div>
@@ -46,15 +47,19 @@
           <div class="kpi card blue">
             <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/></svg></div>
-            <div><div class="lbl">Средняя конверсия КП-ЗК</div><div class="val" id="crCount">—</div></div>
+            <div><div class="lbl">Средняя конверсия КП-ЗК
+              <span class="help" data-metric="cr">?</span></div>
+              <div class="val" id="crCount">—</div></div>
             <div class="delta" id="crCountDelta"></div>
           </div>
           <div class="kpi card green">
             <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="3"/>
               <path d="M2 10h20"/><circle cx="17.5" cy="14.5" r="1.4"/></svg></div>
-            <div><div class="lbl">Средняя конверсия в деньгах</div><div class="val" id="crMoney">—</div></div>
-            <div class="delta" id="crMoneyDelta"></div>
+            <div><div class="lbl">Ожидаемая маржа на одно КП
+              <span class="help" data-metric="expected">?</span></div>
+              <div class="val" id="expected">—</div></div>
+            <div class="delta" id="expectedDelta"></div>
           </div>
         </div>
 
@@ -63,18 +68,27 @@
           <div class="tbl-scroll">
             <table>
               <thead>
-                <tr><th rowspan="2">Категория</th><th class="grp sep" colspan="2">КП</th>
-                    <th class="grp sep" colspan="2">Заказ</th>
-                    <th class="sep" rowspan="2">CR КП-ЗК</th><th rowspan="2">CR деньги</th></tr>
-                <tr><th class="sep">COUNTUNIQUE</th><th>SUM из Маржа</th>
-                    <th class="sep">COUNTUNIQUE</th><th>SUM из Маржа</th></tr>
+                <tr><th rowspan="2">Категория</th><th class="grp sep" colspan="3">КП</th>
+                    <th class="grp sep" colspan="3">Заказ</th>
+                    <th class="grp sep" colspan="3">Приоритет</th></tr>
+                <tr><th class="sep">Документов <span class="help" data-metric="kp_docs">?</span></th>
+                    <th>Позиций <span class="help" data-metric="lines">?</span></th>
+                    <th>Маржа <span class="help" data-metric="margin">?</span></th>
+                    <th class="sep">Документов <span class="help" data-metric="zk_docs">?</span></th>
+                    <th>Позиций <span class="help" data-metric="lines">?</span></th>
+                    <th>Маржа <span class="help" data-metric="margin">?</span></th>
+                    <th class="sep">CR КП-ЗК <span class="help" data-metric="cr">?</span></th>
+                    <th>Медиана заказа <span class="help" data-metric="median">?</span></th>
+                    <th>Ожидаемая маржа <span class="help" data-metric="expected">?</span></th></tr>
               </thead>
               <tbody id="tbody"></tbody>
               <tfoot><tr id="tfoot"></tr></tfoot>
             </table>
           </div>
-          <div class="hint">Нажмите «+», чтобы развернуть категорию и увидеть подкатегории.
-            COUNTUNIQUE — уникальные документы, поэтому сумма по строкам больше итога.</div>
+          <div class="hint">Нажмите «+», чтобы развернуть категорию.
+            Наведите на «?» — объяснит, как считается показатель.
+            Строки со знаком <b>!</b> статистически ненадёжны: заказов слишком мало.
+            <a href="/metrics" style="margin-left:auto">Методика расчёта →</a></div>
         </section>
       </div>
 
@@ -92,7 +106,7 @@
             <div class="legend" id="legendZk"></div></div>
         </section>
         <section class="panel card">
-          <h2>Динамика конверсий по полугодиям</h2>
+          <h2>Динамика по полугодиям</h2>
           <div class="chart-box"><canvas id="halfChart"></canvas></div>
           <div class="note">* Значения округлены.</div>
         </section>
