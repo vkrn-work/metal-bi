@@ -101,11 +101,12 @@ class Report:
     # ------------------------------------------------------------ WHERE
     def _where(self, f: dict):
         clauses, params = [], []
+        # CAST обязателен: DuckDB < 1.2 не приводит параметр-строку к DATE сам
         if f.get("date_from"):
-            clauses.append("doc_date >= ?")
+            clauses.append("doc_date >= CAST(? AS DATE)")
             params.append(f["date_from"])
         if f.get("date_to"):
-            clauses.append("doc_date <= ?")
+            clauses.append("doc_date <= CAST(? AS DATE)")
             params.append(f["date_to"])
 
         def multi(col, values):

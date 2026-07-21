@@ -56,21 +56,40 @@ function currentFilters() {
 }
 
 /* ---------------------------------------------------------- загрузка отчёта */
+function showProblem(text) {
+  const box = $("empty");
+  box.hidden = false;
+  box.textContent = text;
+  $("app").hidden = true;
+}
+
 async function loadReport() {
-  const r = await fetch("/api/report", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(currentFilters()),
-  });
-  if (r.status === 401) return (location.href = "/login");
-  const d = await r.json();
-  if (!d.ready) return;
-  renderKpi(d);
-  lastTree = d.tree;
-  renderTable(d);
-  renderDonut("Kp", d.shares_kp, d.totals.kp_docs);
-  renderDonut("Zk", d.shares_zk, d.totals.zk_docs);
-  renderHalf(d.halfyears);
+  try {
+    const r = await fetch("/api/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(currentFilters()),
+    });
+    if (r.status === 401) return (location.href = "/login");
+    if (!r.ok) {
+      const text = await r.text();
+      return showProblem(`Ошибка сервера (${r.status}). ${text.slice(0, 400)}`);
+    }
+    const d = await r.json();
+    if (!d.ready) {
+      return showProblem("База пуста. Загрузите выгрузки на странице «Данные».");
+    }
+    $("empty").hidden = true;
+    $("app").hidden = false;
+    renderKpi(d);
+    lastTree = d.tree;
+    renderTable(d);
+    renderDonut("Kp", d.shares_kp, d.totals.kp_docs);
+    renderDonut("Zk", d.shares_zk, d.totals.zk_docs);
+    renderHalf(d.halfyears);
+  } catch (err) {
+    showProblem("Не удалось построить отчёт: " + err);
+  }
 }
 
 /* ---------------------------------------------------------- KPI */
