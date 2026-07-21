@@ -2,7 +2,7 @@
 """EMK BI — веб-дашборд «Конверсия КП → Заказ».
 
 Вход по паролю (заглушка: один общий пароль из переменной окружения),
-дашборд с фильтрами и страница загрузки новых выгрузок из CRM.
+дашборд с фильтрами, страница методики и страница загрузки выгрузок из CRM.
 """
 from __future__ import annotations
 
@@ -81,6 +81,14 @@ def dashboard(request: Request):
     return templates.TemplateResponse(
         request, "dashboard.html", {"filters": CLIENT_FILTERS, "ready": report.ready}
     )
+
+
+@app.get("/metrics", response_class=HTMLResponse)
+def metrics_page(request: Request):
+    """Методика: как считается каждый показатель отчёта."""
+    if not authed(request):
+        return RedirectResponse("/login", status_code=303)
+    return templates.TemplateResponse(request, "metrics.html", {})
 
 
 @app.get("/upload", response_class=HTMLResponse)
