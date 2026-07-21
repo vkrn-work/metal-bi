@@ -1,13 +1,12 @@
 <!doctype html>
-<html lang="ru"><head>
+<html lang="ru" data-theme="light"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EMK BI — обновление данных</title><link rel="stylesheet" href="/static/styles.css">
 </head><body>
+{% include "_header.html" %}
 <div class="upload">
-  <div class="topbar" style="margin-bottom:14px">
-    <div class="title-box"><h1 class="title" style="font-size:24px">Обновление данных</h1></div>
-    <div class="btns"><a class="btn" href="/">← К отчёту</a><a class="btn" href="/logout">Выйти</a></div>
-  </div>
+  <div class="page-head"><h1>Данные</h1>
+    <span class="sub">загрузка выгрузок из CRM и пересборка базы</span></div>
 
   {% if etl_ok %}<div class="ok">Конвейер на месте. Сейчас в базе {{ "{:,}".format(rows).replace(",", " ") }} строк.</div>
   {% else %}<div class="warn"><b>Полный пересчёт недоступен:</b> {{ etl_msg }}.<br>
@@ -33,5 +32,6 @@
     <div class="log" id="qlog" hidden></div>
   </form>
 </div>
+<script src="/static/theme.js"></script>
 <script src="/static/upload.js"></script>
 </body></html>
