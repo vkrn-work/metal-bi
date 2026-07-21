@@ -109,3 +109,40 @@ tfoot td:first-child{text-align:left}
 .ok{padding:12px 14px;background:var(--green-soft);border:1px solid #bbf7d0;color:#166534;border-radius:10px;margin-bottom:16px}
 .loading{padding:60px;text-align:center;color:var(--muted)}
 @media(max-width:1200px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr}}
+
+/* ---------- всплывающие подсказки по показателям ---------- */
+.help{display:inline-grid;place-items:center;width:15px;height:15px;margin-left:5px;
+  border-radius:50%;background:#dbe4f5;color:#41506b;font-size:10px;font-weight:700;
+  cursor:help;vertical-align:middle;user-select:none}
+.help:hover{background:var(--blue);color:#fff}
+.help.warn-flag{background:#fde68a;color:#92400e}
+.help.warn-flag:hover{background:#f59e0b;color:#fff}
+.tip{position:fixed;z-index:50;width:320px;padding:12px 14px;background:#0f172a;color:#e2e8f0;
+  border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.28);font-size:12.5px;line-height:1.5;
+  pointer-events:none}
+.tip b{display:block;margin-bottom:5px;color:#fff;font-size:13px}
+.tip p{margin:0 0 8px}
+.tip code{display:block;padding:6px 8px;background:#1e293b;border-radius:6px;color:#93c5fd;
+  font:11.5px ui-monospace,Menlo,monospace}
+tr.weak td{color:#8592a8}
+tr.weak td:first-child{color:var(--ink)}
+.hint a{color:var(--blue);text-decoration:none;font-weight:600}
+.hint a:hover{text-decoration:underline}
+
+/* ---------- страница методики ---------- */
+.doc{max-width:900px;margin:0 auto;padding:18px}
+.doc-card{padding:26px 30px}
+.doc-card h1{margin:0 0 4px;font-size:26px}
+.doc-card h2{margin:26px 0 10px;font-size:18px;padding-top:18px;border-top:1px solid var(--line)}
+.doc-card h2:first-of-type{border-top:0;padding-top:0}
+.doc-card p{margin:0 0 10px;color:#41506b}
+.doc-card code{padding:2px 6px;background:#eef2fa;border-radius:5px;
+  font:12.5px ui-monospace,Menlo,monospace;color:#1d4ed8}
+.formula{display:block;margin:10px 0;padding:12px 14px;background:#f6f8fc;border-left:3px solid var(--blue);
+  border-radius:0 8px 8px 0;font:13px ui-monospace,Menlo,monospace;color:#1a2231}
+.doc-card table{margin:12px 0}
+.doc-card td,.doc-card th{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:13px}
+.doc-card th{color:var(--muted);font-weight:600}
+.callout{margin:14px 0;padding:12px 14px;background:#fff7ed;border:1px solid #fed7aa;
+  border-radius:10px;color:#7c2d12;font-size:13px}
+.callout.info{background:var(--blue-soft);border-color:#c7dbfd;color:#1e3a8a}
