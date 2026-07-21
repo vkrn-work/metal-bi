@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EMK BI — вход</title><link rel="stylesheet" href="/static/styles.css">
+</head><body>
+<div class="login-wrap"><form class="login card" method="post" action="/login">
+  <h1>EMK BI</h1>
+  <p>Отчёт «Конверсия КП → Заказ»</p>
+  <input type="password" name="password" placeholder="Пароль" autofocus autocomplete="current-password">
+  <button type="submit">Войти</button>
+  {% if error %}<div class="err">Неверный пароль</div>{% endif %}
+  <div class="hint">Доступ по общему паролю. Задаётся переменной APP_PASSWORD.</div>
+</form></div>
+</body></html>

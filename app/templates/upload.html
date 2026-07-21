@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EMK BI — обновление данных</title><link rel="stylesheet" href="/static/styles.css">
+</head><body>
+<div class="upload">
+  <div class="topbar" style="margin-bottom:14px">
+    <div class="title-box"><h1 class="title" style="font-size:24px">Обновление данных</h1></div>
+    <div class="btns"><a class="btn" href="/">← К отчёту</a><a class="btn" href="/logout">Выйти</a></div>
+  </div>
+
+  {% if etl_ok %}<div class="ok">Конвейер на месте. Сейчас в базе {{ "{:,}".format(rows).replace(",", " ") }} строк.</div>
+  {% else %}<div class="warn"><b>Полный пересчёт недоступен:</b> {{ etl_msg }}.<br>
+    Пока работает быстрый путь — загрузка готового <code>base.parquet</code>.</div>{% endif %}
+
+  <form class="up-card card" id="full">
+    <h2>Полный пересчёт из выгрузок CRM</h2>
+    <p>КП и ЗК можно приложить сразу за несколько периодов — они объединятся.
+       Справочники можно не прикладывать, если они не менялись.</p>
+    <div class="field"><label>Выгрузки КП (.xlsx, можно несколько)</label><input type="file" name="kp" multiple accept=".xlsx"></div>
+    <div class="field"><label>Выгрузки ЗК (.xlsx, можно несколько)</label><input type="file" name="zk" multiple accept=".xlsx"></div>
+    <div class="field"><label>Справочник клиентов (.xlsx, необязательно)</label><input type="file" name="clients" accept=".xlsx"></div>
+    <div class="field"><label>Справочник менеджеров (.xlsx, необязательно)</label><input type="file" name="managers" accept=".xlsx"></div>
+    <button class="btn primary" type="submit" {% if not etl_ok %}disabled{% endif %}>Пересобрать базу</button>
+    <div class="log" id="log" hidden></div>
+  </form>
+
+  <form class="up-card card" id="quick">
+    <h2>Быстрая замена базы</h2>
+    <p>Если конвейер прогнан локально — просто загрузите готовый <code>base.parquet</code>.</p>
+    <div class="field"><label>Файл base.parquet</label><input type="file" name="file" accept=".parquet" required></div>
+    <button class="btn" type="submit">Заменить базу</button>
+    <div class="log" id="qlog" hidden></div>
+  </form>
+</div>
+<script src="/static/upload.js"></script>
+</body></html>
