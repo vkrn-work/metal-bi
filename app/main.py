@@ -2,7 +2,7 @@
 """EMK BI — веб-дашборд «Конверсия КП → Заказ».
 
 Вход по паролю (заглушка: один общий пароль из переменной окружения),
-дашборд с фильтрами, страница методики и страница загрузки выгрузок из CRM.
+дашборд с фильтрами, страница методологии и страница загрузки выгрузок из CRM.
 """
 from __future__ import annotations
 
@@ -79,16 +79,17 @@ def dashboard(request: Request):
     if not authed(request):
         return RedirectResponse("/login", status_code=303)
     return templates.TemplateResponse(
-        request, "dashboard.html", {"filters": CLIENT_FILTERS, "ready": report.ready}
+        request, "dashboard.html",
+        {"filters": CLIENT_FILTERS, "ready": report.ready, "page": "dash"}
     )
 
 
 @app.get("/metrics", response_class=HTMLResponse)
 def metrics_page(request: Request):
-    """Методика: как считается каждый показатель отчёта."""
+    """Методология: как считается каждый показатель отчёта."""
     if not authed(request):
         return RedirectResponse("/login", status_code=303)
-    return templates.TemplateResponse(request, "metrics.html", {})
+    return templates.TemplateResponse(request, "metrics.html", {"page": "metrics"})
 
 
 @app.get("/upload", response_class=HTMLResponse)
@@ -97,7 +98,8 @@ def upload_page(request: Request):
         return RedirectResponse("/login", status_code=303)
     ok, msg = etl_available()
     return templates.TemplateResponse(
-        request, "upload.html", {"etl_ok": ok, "etl_msg": msg, "rows": report.rows}
+        request, "upload.html",
+        {"etl_ok": ok, "etl_msg": msg, "rows": report.rows, "page": "upload"}
     )
 
 
@@ -117,7 +119,7 @@ async def api_report(request: Request):
     f = {
         "date_from": body.get("date_from") or None,
         "date_to": body.get("date_to") or None,
-        "source": body.get("source") or [],
+        "min_kp": body.get("min_kp"),
     }
     for key in CLIENT_FILTERS:
         f[key] = body.get(key) or []
