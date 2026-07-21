@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
 """Агрегация базы КП/ЗК через DuckDB.
 
-Правила расчёта (методика — в METRICS.md):
+Правила расчёта (методика — в METRICS.md и на странице /metrics):
   КП / Заказ    — число уникальных документов (doc_number), в которых встретилась
-                  категория. Единица счёта — документ, а не строка: тридцать позиций
-                  труб в одном КП это один коммерческий шанс, а не тридцать.
-  Позиции       — число строк (упоминаний). Мера объёма спроса, НЕ знаменатель конверсии.
-  Маржа         — сумма margin_eur (всегда EUR).
-  CR КП-ЗК      — уникальные ЗК / уникальные КП. Отвечает на вопрос
-                  «с какой вероятностью категория из предложения дойдёт до заказа».
-  Медиана заказа — медиана маржи одного заказа по категории. Медиана, а не среднее:
-                  единичные сделки на десятки миллионов ломают среднее.
-  Ожидаемая маржа — CR × медиана заказа. Сколько евро приносит одно предложение
-                  с этой категорией. Это и есть показатель приоритета направления.
-  Достоверность — при числе заказов меньше MIN_RELIABLE_ORDERS доверительный интервал
-                  CR слишком широк, строка помечается как ненадёжная.
-  Доли категорий — доля категории в сумме по всем категориям уровня 1.
+                  категория. Единица счёта — документ, а не строка.
+  Позиции       — число строк. Мера объёма спроса, НЕ знаменатель конверсии.
+  CR КП→ЗК      — уникальные ЗК / уникальные КП.
+  Медиана заказа — медиана маржи одного заказа. Медиана, а не среднее.
+  Ожидаемая маржа — CR × медиана заказа. Показатель приоритета направления.
+  Дельта        — изменение CR к предыдущему периоду той же длины.
+  Достоверность — при числе заказов меньше MIN_RELIABLE_ORDERS строка ненадёжна.
 """
 from __future__ import annotations
 
@@ -27,19 +21,27 @@ import duckdb
 
 CAT_COLS = ["category_1", "category_2", "category_3", "category_4", "category_5"]
 
-# Фильтры «Клиент 1..5» и «Выборка» — какие поля базы за ними стоят
+# Селекторы фильтров: ключ в запросе -> (поле базы, подпись)
 CLIENT_FILTERS = {
-    "client_1": ("client_industry", "Отрасль"),
-    "client_2": ("client_country", "Страна"),
-    "client_3": ("client_scale", "Масштаб бизнеса"),
-    "client_4": ("client_maturity", "Зрелость компании"),
-    "client_5": ("client_tenure", "Длительность сотрудничества"),
-    "selection": ("client_commercial_result", "Коммерческий результат"),
+    "source": ("request_type", "Источник"),
+    "tenure": ("client_tenure", "Длительность сотрудничества"),
+    "maturity": ("client_maturity", "Зрелость"),
+    "scale": ("client_scale", "Масштаб клиента"),
+    "result": ("client_commercial_result", "Ком. результат"),
 }
-SOURCE_FIELD = "request_type"
+
+# Пустой источник в выгрузке = клиент обратился напрямую
+DIRECT_SOURCE = "Отдел продаж"
+
+# Варианты порога «Мин. КП» для топов номенклатуры
+MIN_KP_OPTIONS = [10, 20, 50, 100, 200]
+DEFAULT_MIN_KP = 100
 
 # Меньше этого числа заказов — доверительный интервал CR слишком широк
 MIN_RELIABLE_ORDERS = 30
+
+MONTHS_RU = ["янв", "фев", "мар", "апр", "май", "июн",
+             "июл", "авг", "сен", "окт", "ноя", "дек"]
 
 _LOCK = threading.Lock()
 
@@ -74,6 +76,12 @@ class Report:
             con.execute("ALTER TABLE base ALTER margin_eur TYPE DOUBLE USING TRY_CAST(margin_eur AS DOUBLE)")
             for c in CAT_COLS:
                 con.execute(f"UPDATE base SET {c} = COALESCE(TRIM(CAST({c} AS VARCHAR)), '')")
+            # Пустой источник -> «Отдел продаж». Дублирует ETL, чтобы старые базы тоже работали.
+            con.execute(
+                "UPDATE base SET request_type = ? "
+                "WHERE request_type IS NULL OR TRIM(CAST(request_type AS VARCHAR)) = ''",
+                [DIRECT_SOURCE],
+            )
             self.con = con
             self.rows = con.execute("SELECT COUNT(*) FROM base").fetchone()[0]
             self.min_date, self.max_date = con.execute(
@@ -101,7 +109,8 @@ class Report:
             "rows": self.rows,
             "min_date": str(self.min_date),
             "max_date": str(self.max_date),
-            "source": distinct(SOURCE_FIELD),
+            "min_kp_options": MIN_KP_OPTIONS,
+            "min_kp_default": DEFAULT_MIN_KP,
             "filters": {},
         }
         for key, (col, label) in CLIENT_FILTERS.items():
@@ -124,7 +133,6 @@ class Report:
                 clauses.append(f"TRIM(CAST({col} AS VARCHAR)) IN ({','.join('?' * len(values))})")
                 params.extend(values)
 
-        multi(SOURCE_FIELD, f.get("source"))
         for key, (col, _l) in CLIENT_FILTERS.items():
             multi(col, f.get(key))
         return (" AND ".join(clauses) or "TRUE"), params
@@ -172,7 +180,6 @@ class Report:
             "zk_margin": zk_margin,
             "cr_count": cr,
             "zk_median": zk_median,
-            # ожидаемая маржа на одно предложение = шанс × типичный размер заказа
             "expected": (cr * zk_median) if (cr is not None and zk_median is not None) else None,
             "reliable": zk_docs >= MIN_RELIABLE_ORDERS,
         }
@@ -180,9 +187,8 @@ class Report:
     def _level(self, where: str, params: list, depth: int) -> list:
         """Агрегация по уровню категорий depth (1..5).
 
-        Сначала сворачиваем в документы (строки → документ), потом считаем
-        показатели. Уникальные документы считаем на каждом уровне отдельно:
-        суммировать детей нельзя, один документ попадает в разные подкатегории.
+        Сначала сворачиваем в документы, потом считаем показатели.
+        Суммировать детей нельзя: один документ попадает в разные подкатегории.
         """
         cols = CAT_COLS[:depth]
         group = ", ".join(cols)
@@ -236,35 +242,75 @@ class Report:
         roots.sort(key=lambda n: (-n["kp_docs"], n["name"]))
         return roots
 
-    def _halfyears(self, where: str, params: list) -> list:
+    def _monthly(self, where: str, params: list) -> list:
+        """Ряд по месяцам для скаттеров в карточках показателей."""
         rows = self.con.execute(
             f"""
             WITH f AS (SELECT * FROM base WHERE {where} AND doc_date IS NOT NULL),
             d AS (
-              SELECT YEAR(doc_date) AS y,
-                     CASE WHEN MONTH(doc_date) <= 6 THEN 1 ELSE 2 END AS h,
-                     doc_type, doc_number, SUM(margin_eur) AS doc_margin
-              FROM f GROUP BY y, h, doc_type, doc_number
+              SELECT DATE_TRUNC('month', doc_date) AS m, doc_type, doc_number,
+                     SUM(margin_eur) AS doc_margin
+              FROM f GROUP BY m, doc_type, doc_number
             )
-            SELECT y, h,
+            SELECT m,
               COUNT(*) FILTER (WHERE doc_type='КП'),
               COUNT(*) FILTER (WHERE doc_type='ЗК'),
               MEDIAN(doc_margin) FILTER (WHERE doc_type='ЗК')
-            FROM d GROUP BY y, h ORDER BY y, h
+            FROM d GROUP BY m ORDER BY m
             """,
             params,
         ).fetchall()
         out = []
-        for y, h, kp_docs, zk_docs, zk_median in rows:
-            cr = (zk_docs / kp_docs) if kp_docs else None
-            med = float(zk_median) if zk_median is not None else None
+        for m, kp_docs, zk_docs, zk_median in rows:
             out.append({
-                "label": f"{h} полугодие {y}",
-                "short": f"{h} полугодие",
-                "cr_count": cr,
-                "expected": (cr * med) if (cr is not None and med is not None) else None,
+                "month": str(m)[:7],
+                "label": MONTHS_RU[m.month - 1],
+                "kp_docs": int(kp_docs or 0),
+                "zk_docs": int(zk_docs or 0),
+                "cr_count": (zk_docs / kp_docs) if kp_docs else None,
+                "zk_median": float(zk_median) if zk_median is not None else None,
             })
         return out
+
+    def _products(self, where: str, params: list, min_kp: int, top: int = 10) -> dict:
+        """Лучшие и худшие позиции номенклатуры по конверсии.
+
+        Порог min_kp обязателен: без него в топ попадут позиции с одним КП
+        и одним заказом, то есть конверсией 100%.
+        """
+        rows = self.con.execute(
+            f"""
+            WITH f AS (SELECT * FROM base WHERE {where}),
+            d AS (
+              SELECT product, doc_type, doc_number, SUM(margin_eur) AS doc_margin
+              FROM f WHERE TRIM(CAST(product AS VARCHAR)) <> ''
+              GROUP BY product, doc_type, doc_number
+            )
+            SELECT product,
+              COUNT(*) FILTER (WHERE doc_type='КП') AS kp_docs,
+              COUNT(*) FILTER (WHERE doc_type='ЗК') AS zk_docs,
+              MEDIAN(doc_margin) FILTER (WHERE doc_type='ЗК') AS zk_median
+            FROM d GROUP BY product
+            HAVING kp_docs >= ?
+            """,
+            params + [min_kp],
+        ).fetchall()
+        items = []
+        for product, kp_docs, zk_docs, zk_median in rows:
+            items.append({
+                "name": product,
+                "kp_docs": int(kp_docs or 0),
+                "zk_docs": int(zk_docs or 0),
+                "cr_count": (zk_docs / kp_docs) if kp_docs else 0.0,
+                "zk_median": float(zk_median) if zk_median is not None else None,
+            })
+        items.sort(key=lambda x: (-x["cr_count"], -x["kp_docs"]))
+        return {
+            "min_kp": min_kp,
+            "qualified": len(items),
+            "best": items[:top],
+            "worst": list(reversed(items[-top:])) if items else [],
+        }
 
     @staticmethod
     def _shares(tree: list, field: str, top: int = 10) -> list:
@@ -278,8 +324,40 @@ class Report:
         return out
 
     @staticmethod
+    def _apply_delta(tree: list, prev_tree: list) -> None:
+        """Проставляет каждой строке изменение CR к предыдущему периоду.
+
+        delta_pp   — изменение в процентных пунктах;
+        delta_rel  — то же в процентах от прежнего значения.
+        """
+        prev_by_name = {}
+
+        def collect(nodes, path):
+            for n in nodes:
+                key = tuple(path + [n["name"]])
+                prev_by_name[key] = n
+                collect(n.get("children", []), list(key))
+
+        collect(prev_tree, [])
+
+        def walk(nodes, path):
+            for n in nodes:
+                key = tuple(path + [n["name"]])
+                p = prev_by_name.get(key)
+                n["cr_prev"] = p["cr_count"] if p else None
+                if p and p["cr_count"] and n["cr_count"] is not None:
+                    n["delta_pp"] = (n["cr_count"] - p["cr_count"]) * 100
+                    n["delta_rel"] = (n["cr_count"] - p["cr_count"]) / p["cr_count"]
+                else:
+                    n["delta_pp"] = None
+                    n["delta_rel"] = None
+                walk(n.get("children", []), list(key))
+
+        walk(tree, [])
+
+    @staticmethod
     def _prev_window(f: dict):
-        """Предыдущий период той же длины — для стрелок «к периоду ранее»."""
+        """Предыдущий период той же длины — для дельт и стрелок."""
         if not (f.get("date_from") and f.get("date_to")):
             return None
         try:
@@ -308,6 +386,14 @@ class Report:
             pt = self._totals(pw, pp)
             if pt["kp_docs"]:
                 prev_totals = pt
+                self._apply_delta(tree, self._tree(pw, pp))
+        if prev_totals is None:
+            self._apply_delta(tree, [])
+
+        try:
+            min_kp = int(f.get("min_kp") or DEFAULT_MIN_KP)
+        except (TypeError, ValueError):
+            min_kp = DEFAULT_MIN_KP
 
         return {
             "ready": True,
@@ -318,5 +404,6 @@ class Report:
             "tree": tree,
             "shares_kp": self._shares(tree, "kp_docs"),
             "shares_zk": self._shares(tree, "zk_docs"),
-            "halfyears": self._halfyears(where, params),
+            "monthly": self._monthly(where, params),
+            "products": self._products(where, params, min_kp),
         }
