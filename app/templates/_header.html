@@ -1,0 +1,14 @@
+<header class="hdr">
+  <div class="brand"><span class="mark">BI</span><span>EMK</span></div>
+  <nav class="nav">
+    <a href="/" class="{{ 'on' if page == 'dash' }}">Обзор</a>
+    <a href="/metrics" class="{{ 'on' if page == 'metrics' }}">Методология</a>
+    <a href="/upload" class="{{ 'on' if page == 'upload' }}">Данные</a>
+  </nav>
+  <div class="hdr-right">
+    {% if page == 'dash' %}
+    <button class="btn" id="exportBtn" title="Выгрузить таблицу в CSV">Экспорт</button>
+    {% endif %}
+    <button class="icon-btn" id="theme" title="Тẽмная / светлая тема">◐</button>
+  </div>
+</header>
