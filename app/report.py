@@ -1,13 +1,20 @@
 # -*- coding: utf-8 -*-
 """Агрегация базы КП/ЗК через DuckDB.
 
-Правила расчёта (согласованы с референсным отчётом):
-  COUNTUNIQUE   — число уникальных документов внутри группы (doc_number);
-                  итог по выборке считается отдельно, а не суммой групп,
-                  потому что один документ попадает в несколько категорий.
-  SUM из Маржа  — сумма margin_eur (всегда EUR).
-  CR КП-ЗК      — уникальные ЗК / уникальные КП.
-  CR деньги     — маржа ЗК / маржа КП.
+Правила расчёта (методика — в METRICS.md):
+  КП / Заказ    — число уникальных документов (doc_number), в которых встретилась
+                  категория. Единица счёта — документ, а не строка: тридцать позиций
+                  труб в одном КП это один коммерческий шанс, а не тридцать.
+  Позиции       — число строк (упоминаний). Мера объёма спроса, НЕ знаменатель конверсии.
+  Маржа         — сумма margin_eur (всегда EUR).
+  CR КП-ЗК      — уникальные ЗК / уникальные КП. Отвечает на вопрос
+                  «с какой вероятностью категория из предложения дойдёт до заказа».
+  Медиана заказа — медиана маржи одного заказа по категории. Медиана, а не среднее:
+                  единичные сделки на десятки миллионов ломают среднее.
+  Ожидаемая маржа — CR × медиана заказа. Сколько евро приносит одно предложение
+                  с этой категорией. Это и есть показатель приоритета направления.
+  Достоверность — при числе заказов меньше MIN_RELIABLE_ORDERS доверительный интервал
+                  CR слишком широк, строка помечается как ненадёжная.
   Доли категорий — доля категории в сумме по всем категориям уровня 1.
 """
 from __future__ import annotations
@@ -30,6 +37,9 @@ CLIENT_FILTERS = {
     "selection": ("client_commercial_result", "Коммерческий результат"),
 }
 SOURCE_FIELD = "request_type"
+
+# Меньше этого числа заказов — доверительный интервал CR слишком широк
+MIN_RELIABLE_ORDERS = 30
 
 _LOCK = threading.Lock()
 
@@ -121,45 +131,79 @@ class Report:
 
     # ------------------------------------------------------------ показатели
     def _totals(self, where: str, params: list) -> dict:
-        kp_docs, zk_docs, kp_margin, zk_margin = self.con.execute(
+        """Итог по всей выборке. Считается отдельно, а не суммой категорий:
+        один документ попадает сразу в несколько категорий."""
+        row = self.con.execute(
             f"""
+            WITH f AS (SELECT * FROM base WHERE {where}),
+            d AS (
+              SELECT doc_type, doc_number,
+                     SUM(margin_eur) AS doc_margin, COUNT(*) AS lines
+              FROM f GROUP BY doc_type, doc_number
+            )
             SELECT
-              COUNT(DISTINCT CASE WHEN doc_type='КП' THEN doc_number END),
-              COUNT(DISTINCT CASE WHEN doc_type='ЗК' THEN doc_number END),
-              COALESCE(SUM(CASE WHEN doc_type='КП' THEN margin_eur END), 0),
-              COALESCE(SUM(CASE WHEN doc_type='ЗК' THEN margin_eur END), 0)
-            FROM base WHERE {where}
+              COUNT(*)          FILTER (WHERE doc_type='КП'),
+              COALESCE(SUM(lines)       FILTER (WHERE doc_type='КП'), 0),
+              COALESCE(SUM(doc_margin)  FILTER (WHERE doc_type='КП'), 0),
+              COUNT(*)          FILTER (WHERE doc_type='ЗК'),
+              COALESCE(SUM(lines)       FILTER (WHERE doc_type='ЗК'), 0),
+              COALESCE(SUM(doc_margin)  FILTER (WHERE doc_type='ЗК'), 0),
+              MEDIAN(doc_margin)        FILTER (WHERE doc_type='ЗК')
+            FROM d
             """,
             params,
         ).fetchone()
+        return self._pack(row)
+
+    @staticmethod
+    def _pack(row) -> dict:
+        """Собирает показатели строки из сырых агрегатов."""
+        kp_docs, kp_lines, kp_margin, zk_docs, zk_lines, zk_margin, zk_median = row
+        kp_docs, zk_docs = int(kp_docs or 0), int(zk_docs or 0)
         kp_margin, zk_margin = float(kp_margin or 0), float(zk_margin or 0)
+        zk_median = float(zk_median) if zk_median is not None else None
+        cr = (zk_docs / kp_docs) if kp_docs else None
         return {
             "kp_docs": kp_docs,
-            "zk_docs": zk_docs,
+            "kp_lines": int(kp_lines or 0),
             "kp_margin": kp_margin,
+            "zk_docs": zk_docs,
+            "zk_lines": int(zk_lines or 0),
             "zk_margin": zk_margin,
-            "cr_count": (zk_docs / kp_docs) if kp_docs else None,
-            "cr_money": (zk_margin / kp_margin) if kp_margin else None,
+            "cr_count": cr,
+            "zk_median": zk_median,
+            # ожидаемая маржа на одно предложение = шанс × типичный размер заказа
+            "expected": (cr * zk_median) if (cr is not None and zk_median is not None) else None,
+            "reliable": zk_docs >= MIN_RELIABLE_ORDERS,
         }
 
     def _level(self, where: str, params: list, depth: int) -> list:
         """Агрегация по уровню категорий depth (1..5).
 
-        Уникальные документы считаем на каждом уровне отдельно: суммировать
-        детей нельзя, один документ может встречаться в нескольких подкатегориях.
+        Сначала сворачиваем в документы (строки → документ), потом считаем
+        показатели. Уникальные документы считаем на каждом уровне отдельно:
+        суммировать детей нельзя, один документ попадает в разные подкатегории.
         """
         cols = CAT_COLS[:depth]
         group = ", ".join(cols)
         extra = f" AND TRIM({CAT_COLS[depth-1]}) <> ''" if depth > 1 else ""
         rows = self.con.execute(
             f"""
+            WITH f AS (SELECT * FROM base WHERE {where}{extra}),
+            d AS (
+              SELECT {group}, doc_type, doc_number,
+                     SUM(margin_eur) AS doc_margin, COUNT(*) AS lines
+              FROM f GROUP BY {group}, doc_type, doc_number
+            )
             SELECT {group},
-              COUNT(DISTINCT CASE WHEN doc_type='КП' THEN doc_number END) AS kp_docs,
-              COALESCE(SUM(CASE WHEN doc_type='КП' THEN margin_eur END), 0) AS kp_margin,
-              COUNT(DISTINCT CASE WHEN doc_type='ЗК' THEN doc_number END) AS zk_docs,
-              COALESCE(SUM(CASE WHEN doc_type='ЗК' THEN margin_eur END), 0) AS zk_margin
-            FROM base WHERE {where}{extra}
-            GROUP BY {group}
+              COUNT(*)          FILTER (WHERE doc_type='КП')            AS kp_docs,
+              COALESCE(SUM(lines)      FILTER (WHERE doc_type='КП'), 0) AS kp_lines,
+              COALESCE(SUM(doc_margin) FILTER (WHERE doc_type='КП'), 0) AS kp_margin,
+              COUNT(*)          FILTER (WHERE doc_type='ЗК')            AS zk_docs,
+              COALESCE(SUM(lines)      FILTER (WHERE doc_type='ЗК'), 0) AS zk_lines,
+              COALESCE(SUM(doc_margin) FILTER (WHERE doc_type='ЗК'), 0) AS zk_margin,
+              MEDIAN(doc_margin)       FILTER (WHERE doc_type='ЗК')     AS zk_median
+            FROM d GROUP BY {group}
             HAVING kp_docs > 0 OR zk_docs > 0
             """,
             params,
@@ -167,19 +211,11 @@ class Report:
         out = []
         for r in rows:
             path = [str(x or "") for x in r[:depth]]
-            kp_docs, kp_margin, zk_docs, zk_margin = r[depth:]
-            kp_margin, zk_margin = float(kp_margin or 0), float(zk_margin or 0)
-            out.append({
-                "path": path,
-                "name": path[-1] or "(не указано)",
-                "depth": depth,
-                "kp_docs": kp_docs,
-                "kp_margin": kp_margin,
-                "zk_docs": zk_docs,
-                "zk_margin": zk_margin,
-                "cr_count": (zk_docs / kp_docs) if kp_docs else None,
-                "cr_money": (zk_margin / kp_margin) if kp_margin else None,
-            })
+            node = self._pack(r[depth:])
+            node["path"] = path
+            node["name"] = path[-1] or "(не указано)"
+            node["depth"] = depth
+            out.append(node)
         return out
 
     def _tree(self, where: str, params: list) -> list:
@@ -203,25 +239,30 @@ class Report:
     def _halfyears(self, where: str, params: list) -> list:
         rows = self.con.execute(
             f"""
-            SELECT YEAR(doc_date) AS y,
-                   CASE WHEN MONTH(doc_date) <= 6 THEN 1 ELSE 2 END AS h,
-              COUNT(DISTINCT CASE WHEN doc_type='КП' THEN doc_number END),
-              COUNT(DISTINCT CASE WHEN doc_type='ЗК' THEN doc_number END),
-              COALESCE(SUM(CASE WHEN doc_type='КП' THEN margin_eur END), 0),
-              COALESCE(SUM(CASE WHEN doc_type='ЗК' THEN margin_eur END), 0)
-            FROM base WHERE {where} AND doc_date IS NOT NULL
-            GROUP BY y, h ORDER BY y, h
+            WITH f AS (SELECT * FROM base WHERE {where} AND doc_date IS NOT NULL),
+            d AS (
+              SELECT YEAR(doc_date) AS y,
+                     CASE WHEN MONTH(doc_date) <= 6 THEN 1 ELSE 2 END AS h,
+                     doc_type, doc_number, SUM(margin_eur) AS doc_margin
+              FROM f GROUP BY y, h, doc_type, doc_number
+            )
+            SELECT y, h,
+              COUNT(*) FILTER (WHERE doc_type='КП'),
+              COUNT(*) FILTER (WHERE doc_type='ЗК'),
+              MEDIAN(doc_margin) FILTER (WHERE doc_type='ЗК')
+            FROM d GROUP BY y, h ORDER BY y, h
             """,
             params,
         ).fetchall()
         out = []
-        for y, h, kp_docs, zk_docs, kp_margin, zk_margin in rows:
-            kp_margin, zk_margin = float(kp_margin or 0), float(zk_margin or 0)
+        for y, h, kp_docs, zk_docs, zk_median in rows:
+            cr = (zk_docs / kp_docs) if kp_docs else None
+            med = float(zk_median) if zk_median is not None else None
             out.append({
                 "label": f"{h} полугодие {y}",
                 "short": f"{h} полугодие",
-                "cr_count": (zk_docs / kp_docs) if kp_docs else None,
-                "cr_money": (zk_margin / kp_margin) if kp_margin else None,
+                "cr_count": cr,
+                "expected": (cr * med) if (cr is not None and med is not None) else None,
             })
         return out
 
