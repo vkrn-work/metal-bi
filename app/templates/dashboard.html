@@ -13,22 +13,23 @@
     <span class="sub" id="dataPeriod">—</span>
   </div>
 
-  <!-- ---------- фильтры ---------- -->
+  <!-- ---------- фильтры: две строки ---------- -->
   <div class="filters card">
-    <div class="fld"><label>Период</label>
-      <div class="range"><input type="date" id="dateFrom"><span>–</span><input type="date" id="dateTo"></div>
+    <div class="frow">
+      <div class="fld fld-wide"><label>Период</label><div id="datePick"></div></div>
+      <div class="fld"><label>Компания</label><div id="ms_company"></div></div>
+      <div class="fld"><label>Источник</label><div id="ms_source"></div></div>
+      <div class="fld fld-mk"><label>Мин. КП</label><select class="sel" id="min_kp"></select></div>
+      <div class="acts">
+        <button class="btn primary" id="apply">Применить</button>
+        <button class="btn" id="reset">Сбросить</button>
+      </div>
     </div>
-    {% for key, meta in filters.items() %}
-    <div class="fld"><label>{{ meta[1] }}</label>
-      <select class="sel" id="{{ key }}"><option value="">Все</option></select>
-    </div>
-    {% endfor %}
-    <div class="fld"><label>Мин. КП</label>
-      <select class="sel" id="min_kp"></select>
-    </div>
-    <div class="acts">
-      <button class="btn primary" id="apply">Применить</button>
-      <button class="btn" id="reset">Сбросить</button>
+    <div class="frow">
+      <div class="fld"><label id="lb_tenure"></label><div id="ms_tenure"></div></div>
+      <div class="fld"><label id="lb_maturity"></label><div id="ms_maturity"></div></div>
+      <div class="fld"><label id="lb_scale"></label><div id="ms_scale"></div></div>
+      <div class="fld"><label id="lb_result"></label><div id="ms_result"></div></div>
     </div>
   </div>
 
@@ -110,5 +111,6 @@
     База пуста. Загрузите выгрузки на странице <a href="/upload">Данные</a>.
   </div>
 </div>
+<script src="/static/widgets.js"></script>
 <script src="/static/app.js"></script>
 </body></html>
