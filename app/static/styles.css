@@ -54,15 +54,15 @@ a{color:var(--blue)}
 .page-head h1{margin:0;font-size:22px;letter-spacing:-.4px}
 .page-head .sub{color:var(--muted);font-size:13px}
 
-/* ---------- показатели ---------- */
-.kpis{display:grid;gap:12px;margin-bottom:12px;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-.kpi{padding:15px 17px 12px}
-.kpi .top{display:flex;align-items:center;gap:6px;color:var(--ink-2);font-size:12.5px;font-weight:600}
-.kpi .val{margin:7px 0 2px;font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1.1}
-.kpi .val small{font-size:15px;font-weight:600;color:var(--muted);margin-left:3px}
-.kpi .sub{font-size:11.5px;color:var(--muted)}
-.spark-box{position:relative;height:46px;margin-top:9px}
+/* ---------- показатели (компактные) ---------- */
+.kpis{display:grid;gap:10px;margin-bottom:12px;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.kpi{padding:9px 11px 8px}
+.kpi .top{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11px;font-weight:600}
+.kpi .val{margin:3px 0 1px;font-size:20px;font-weight:700;letter-spacing:-.5px;line-height:1.15}
+.kpi .val small{font-size:12px;font-weight:600;color:var(--muted);margin-left:3px}
+.kpi .sub{font-size:10px;color:var(--muted)}
+.spark-box{position:relative;height:34px;margin-top:6px}
 .spark-box canvas{position:absolute;inset:0}
 
 /* ---------- сетка дашборда ---------- */
@@ -111,20 +111,20 @@ tfoot td:first-child{text-align:left}
 .b-warn{background:var(--amber-soft);color:var(--amber);font-weight:600;font-size:10.5px;
   padding:1px 6px;margin-left:6px}
 
-/* ---------- кольца и топы ---------- */
-.donut{display:flex;gap:12px;align-items:center}
-.donut .cv{position:relative;width:132px;height:132px;flex:0 0 auto}
+/* ---------- кольца (крупнее, легенда без скролла) ---------- */
+.donut{display:flex;gap:14px;align-items:center}
+.donut .cv{position:relative;width:168px;height:168px;flex:0 0 auto}
 .donut .center{position:absolute;inset:0;display:grid;place-content:center;text-align:center;
   pointer-events:none}
 .donut .center span{display:block;font-size:11px;color:var(--muted)}
 .donut .center b{font-size:18px;letter-spacing:-.5px}
-.legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:11.5px;
-  max-height:160px;overflow:auto}
+.legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:11px}
 .legend div{display:flex;align-items:center;gap:6px}
 .legend i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 .legend span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .legend b{margin-left:auto;color:var(--muted);font-weight:600}
 
+/* ---------- топы ---------- */
 .toplist{display:flex;flex-direction:column;gap:1px}
 .toprow{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--line-2);
   font-size:12.5px}
@@ -134,6 +134,10 @@ tfoot td:first-child{text-align:left}
 .toprow .kp{color:var(--muted);font-size:11px;flex:0 0 auto}
 .toprow .cr{font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto;min-width:52px;text-align:right}
 .empty-note{padding:18px 0;color:var(--muted);font-size:12.5px;text-align:center}
+
+/* ---------- топы под таблицей ---------- */
+.tops-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:720px){.tops-grid{grid-template-columns:1fr}}
 
 /* ---------- подсказки ---------- */
 .help{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
@@ -167,7 +171,7 @@ tfoot td:first-child{text-align:left}
   .hdr{padding:0 12px;gap:12px}
   .brand span{display:none}
   .page-head h1{font-size:19px}
-  .kpi .val{font-size:26px}
+  .kpi .val{font-size:19px}
   .donut{flex-direction:column;align-items:stretch}
   .donut .cv{margin:0 auto}
   tbody td:first-child{min-width:160px}
@@ -206,15 +210,16 @@ tfoot td:first-child{text-align:left}
 .ok{padding:12px 14px;background:var(--green-soft);border:1px solid var(--line);
   color:var(--green);border-radius:10px;margin-bottom:16px}
 
-/* ---------- фильтры в две строки ---------- */
-.filters{display:flex;flex-direction:column;gap:10px;padding:12px 14px;margin-bottom:14px}
-.frow{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
-.frow .fld{flex:1 1 150px;min-width:130px;display:flex;flex-direction:column;gap:6px}
-.frow .fld label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+/* ---------- фильтры в две строки (компактные) ---------- */
+.filters{display:flex;flex-direction:column;gap:8px;padding:10px 12px;margin-bottom:12px}
+.frow{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.frow .fld{flex:1 1 140px;min-width:120px;display:flex;flex-direction:column;gap:4px}
+.frow .fld label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
 .frow .fld-wide{flex:1 1 250px}
 .frow .fld-mk{flex:0 0 100px;min-width:90px}
 .frow .acts{display:flex;gap:8px;flex:0 0 auto}
-.sel{width:100%;height:38px;padding:0 32px 0 11px;border:1px solid var(--line);
+.frow .acts .btn{height:32px;padding:0 13px}
+.sel{width:100%;height:32px;padding:0 28px 0 10px;border:1px solid var(--line);
   border-radius:10px;background:var(--card);color:var(--ink);appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238593a8' stroke-width='3'><path d='M5 8l7 7 7-7'/></svg>");
   background-repeat:no-repeat;background-position:right 11px center;
@@ -228,7 +233,7 @@ tfoot td:first-child{text-align:left}
   box-shadow:0 12px 34px rgba(17,24,39,.16);padding:8px;display:none}
 .pop.open{display:block}
 .ms-trigger,.dr-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;
-  text-align:left;cursor:pointer}
+  text-align:left;cursor:pointer;height:32px;font-size:13px}
 .ms-lbl,.dr-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ms-lbl.muted{color:var(--muted)}
 
