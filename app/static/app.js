@@ -1,6 +1,10 @@
 /* Дашборд «Конверсия КП → Заказ». */
 const $ = (id) => document.getElementById(id);
-const FILTER_IDS = ["source", "tenure", "maturity", "scale", "result"];
+const ROW1 = ["company", "source"];        // компания, источник
+const ROW2 = ["tenure", "maturity", "scale", "result"];  // категории клиента
+const FILTER_IDS = [...ROW1, ...ROW2];
+const widgets = {};                        // key -> MultiSelect
+let datePick = null;
 const PALETTE = ["#2f6df6","#0ea5e9","#0f9d58","#e0a13a","#8b5cf6","#06b6d4",
                  "#ec4899","#f97316","#1e3a8a","#94a3b8","#64748b"];
 
@@ -52,7 +56,7 @@ const money = (v) => nf.format(Math.round(v || 0));
 const eur = (v) => (v === null || v === undefined ? "—" : nf.format(Math.round(v)) + " €");
 const pct = (v, d = 2) =>
   v === null || v === undefined ? "—" : (v * 100).toFixed(d).replace(".", ",") + "%";
-const fmtDate = (iso) => { const [y,m,d] = iso.split("-"); return `${d}.${m}.${y}`; };
+const ruShort = (iso) => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
 
 /* ---------------------------------------------------------- тема */
 (function theme() {
@@ -74,19 +78,24 @@ async function loadFilters() {
   const data = await r.json();
   if (!data.ready) return;
 
-  $("dateFrom").value = data.min_date;
-  $("dateTo").value = data.max_date;
-  $("dateFrom").min = $("dateTo").min = data.min_date;
-  $("dateFrom").max = $("dateTo").max = data.max_date;
   $("dataPeriod").textContent =
-    `данные за ${fmtDate(data.min_date)} – ${fmtDate(data.max_date)} · ${nf.format(data.rows)} строк`;
+    `данные за ${ruShort(data.min_date)} – ${ruShort(data.max_date)} · ${nf.format(data.rows)} строк`;
 
+  // календарь (строится один раз)
+  if (!datePick) {
+    datePick = new DateRange(document.getElementById("datePick"),
+      { min: data.min_date, max: data.max_date, onChange: () => {} });
+  }
+
+  // мультиселекты (строятся один раз, дальше только обновляем значения)
   FILTER_IDS.forEach((k) => {
     const meta = data.filters[k];
     if (!meta) return;
-    const sel = $(k);
-    sel.innerHTML = '<option value="">Все</option>';
-    meta.values.forEach((v) => sel.add(new Option(v, v)));
+    const lbl = $("lb_" + k);
+    if (lbl) lbl.textContent = meta.label;
+    if (widgets[k]) { widgets[k].setValues(meta.values); return; }
+    const mount = document.getElementById("ms_" + k);
+    if (mount) widgets[k] = new MultiSelect(mount, { values: meta.values, placeholder: "Все" });
   });
 
   const mk = $("min_kp");
@@ -96,8 +105,9 @@ async function loadFilters() {
 }
 
 function currentFilters() {
-  const f = { date_from: $("dateFrom").value, date_to: $("dateTo").value, min_kp: +$("min_kp").value };
-  FILTER_IDS.forEach((k) => (f[k] = $(k).value ? [$(k).value] : []));
+  const dr = datePick ? datePick.get() : { from: "", to: "" };
+  const f = { date_from: dr.from, date_to: dr.to, min_kp: +$("min_kp").value };
+  FILTER_IDS.forEach((k) => (f[k] = widgets[k] ? widgets[k].getSelected() : []));
   return f;
 }
 
@@ -330,17 +340,18 @@ function exportCsv() {
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `emk-categories-${$("dateFrom").value}_${$("dateTo").value}.csv`;
+  const dr = datePick ? datePick.get() : { from: "", to: "" };
+  a.download = `emk-categories-${dr.from}_${dr.to}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
 /* ---------------------------------------------------------- события */
 $("apply").addEventListener("click", loadReport);
-$("reset").addEventListener("click", async () => {
-  FILTER_IDS.forEach((k) => ($(k).value = ""));
+$("reset").addEventListener("click", () => {
+  FILTER_IDS.forEach((k) => widgets[k] && widgets[k].clear());
+  datePick && datePick.reset();
   expanded.clear();
-  await loadFilters();
   loadReport();
 });
 $("exportBtn") && $("exportBtn").addEventListener("click", exportCsv);
