@@ -23,6 +23,7 @@ CAT_COLS = ["category_1", "category_2", "category_3", "category_4", "category_5"
 
 # Селекторы фильтров: ключ в запросе -> (поле базы, подпись)
 CLIENT_FILTERS = {
+    "company": ("company", "Компания"),
     "source": ("request_type", "Источник"),
     "tenure": ("client_tenure", "Длительность сотрудничества"),
     "maturity": ("client_maturity", "Зрелость"),
