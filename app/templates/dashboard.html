@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru" data-theme="light"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Конверсия КП → Заказ</title>
+<title>Приоритезация номенклатуры. Общая</title>
 <link rel="stylesheet" href="/static/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head><body>
@@ -9,7 +9,7 @@
 
 <div class="wrap">
   <div class="page-head">
-    <h1>Конверсия КП → Заказ</h1>
+    <h1>Приоритезация номенклатуры. Общая</h1>
     <span class="sub" id="dataPeriod">—</span>
   </div>
 
@@ -73,6 +73,20 @@
           <div class="hint">Нажмите «+», чтобы раскрыть подкатегории. Наведите на «?» — покажет формулу.
             <a href="/metrics" style="margin-left:auto">Методология →</a></div>
         </section>
+
+        <div class="tops-grid">
+          <section class="panel card">
+            <div class="panel-head"><h2>Топ-10 позиций по конверсии</h2>
+              <i class="help" data-metric="top">?</i>
+              <span class="note right" id="qualified"></span></div>
+            <div class="toplist" id="topBest"></div>
+          </section>
+          <section class="panel card">
+            <div class="panel-head"><h2>Худшие 10 позиций по конверсии</h2>
+              <i class="help" data-metric="top">?</i></div>
+            <div class="toplist" id="topWorst"></div>
+          </section>
+        </div>
       </div>
 
       <!-- ---------- правая колонка ---------- -->
@@ -89,19 +103,6 @@
           <div class="donut"><div class="cv"><canvas id="donutZk"></canvas>
             <div class="center"><span>Заказов</span><b id="totalZk">—</b></div></div>
             <div class="legend" id="legendZk"></div></div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head"><h2>Топ-10 по конверсии</h2>
-            <i class="help" data-metric="top">?</i>
-            <span class="note right" id="qualified"></span></div>
-          <div class="toplist" id="topBest"></div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head"><h2>Худшие 10 по конверсии</h2>
-            <i class="help" data-metric="top">?</i></div>
-          <div class="toplist" id="topWorst"></div>
         </section>
       </div>
     </div>
