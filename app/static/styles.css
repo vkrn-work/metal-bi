@@ -78,7 +78,8 @@ a{color:var(--blue)}
 .kpi .val{margin:7px 0 2px;font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1.1}
 .kpi .val small{font-size:15px;font-weight:600;color:var(--muted);margin-left:3px}
 .kpi .sub{font-size:11.5px;color:var(--muted)}
-.spark{margin-top:9px;height:44px;width:100%;display:block}
+.spark-box{position:relative;height:46px;margin-top:9px}
+.spark-box canvas{position:absolute;inset:0}
 
 /* ---------- сетка дашборда ---------- */
 .grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(320px,.85fr);gap:16px;align-items:start}
